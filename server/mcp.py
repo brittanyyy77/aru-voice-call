@@ -9,7 +9,13 @@ logger = logging.getLogger(__name__)
 
 
 def setup_mcp_routes(app: FastAPI, session_manager: SessionManager):
-    """Expose MCP-compatible tool endpoints."""
+    """MCP endpoints for Aru integration.
+    
+    MCP is NOT in the real-time call loop.
+    It provides two things:
+    1. Post-call: retrieve call transcript & emotion summary to sync into Aru memory
+    2. Push: send a message into an active call (e.g. Aru wants to say something)
+    """
 
     @app.post("/mcp")
     async def mcp_handler(request: Request):
@@ -24,7 +30,7 @@ def setup_mcp_routes(app: FastAPI, session_manager: SessionManager):
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": {
                     "name": "aru-voice-call",
-                    "version": "0.1.0",
+                    "version": "0.2.0",
                 },
             })
 
@@ -32,65 +38,57 @@ def setup_mcp_routes(app: FastAPI, session_manager: SessionManager):
             return _jsonrpc_response(req_id, {
                 "tools": [
                     {
-                        "name": "start_call",
-                        "description": "Start a voice call session. Returns session ID and WebSocket URL.",
+                        "name": "get_call_status",
+                        "description": "Check if there's an active voice call, and list completed calls available for sync.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {},
                         },
                     },
                     {
-                        "name": "end_call",
-                        "description": "End an active voice call session.",
+                        "name": "get_call_transcript",
+                        "description": "Get the full transcript and emotion summary from a completed call. Use this after a call ends to sync the conversation into Aru memory.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
                                 "session_id": {
                                     "type": "string",
-                                    "description": "Session ID to end",
+                                    "description": "Session ID of the completed call",
                                 }
                             },
                             "required": ["session_id"],
                         },
                     },
                     {
-                        "name": "get_transcript",
-                        "description": "Get the latest transcription and emotion from an active call.",
+                        "name": "push_message",
+                        "description": "Push a text message into an active voice call. The message will be synthesized as voice and played to the user. Use this when you want to proactively say something during a call.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
                                 "session_id": {
                                     "type": "string",
-                                    "description": "Session ID",
-                                }
-                            },
-                            "required": ["session_id"],
-                        },
-                    },
-                    {
-                        "name": "send_voice_reply",
-                        "description": "Send text to be spoken back to the user via TTS.",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "session_id": {
-                                    "type": "string",
-                                    "description": "Session ID",
+                                    "description": "Active session ID",
                                 },
                                 "text": {
                                     "type": "string",
-                                    "description": "Text to speak",
+                                    "description": "Text to speak to the user",
                                 },
                             },
                             "required": ["session_id", "text"],
                         },
                     },
                     {
-                        "name": "get_call_status",
-                        "description": "Get status of all active calls.",
+                        "name": "get_live_emotion",
+                        "description": "Get the current emotion state from an active call. Use this to check how the user is feeling during a call.",
                         "inputSchema": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                                "session_id": {
+                                    "type": "string",
+                                    "description": "Active session ID",
+                                }
+                            },
+                            "required": ["session_id"],
                         },
                     },
                 ]
@@ -100,71 +98,106 @@ def setup_mcp_routes(app: FastAPI, session_manager: SessionManager):
             tool_name = params.get("name", "")
             args = params.get("arguments", {})
 
-            if tool_name == "start_call":
-                session_id = str(uuid.uuid4())[:8]
-                session_manager.get_or_create(session_id)
+            if tool_name == "get_call_status":
+                active = session_manager.list_sessions()
+                completed = session_manager.list_completed_sessions()
                 return _jsonrpc_response(req_id, {
                     "content": [{
                         "type": "text",
                         "text": json.dumps({
-                            "session_id": session_id,
-                            "ws_url": f"/ws/call/{session_id}",
-                            "status": "ready",
+                            "active_calls": active,
+                            "completed_calls_available": completed,
+                            "active_count": len(active),
                         }),
                     }],
                 })
 
-            elif tool_name == "end_call":
+            elif tool_name == "get_call_transcript":
                 sid = args.get("session_id", "")
-                session_manager.end_session(sid)
-                return _jsonrpc_response(req_id, {
-                    "content": [{
-                        "type": "text",
-                        "text": json.dumps({"status": "ended", "session_id": sid}),
-                    }],
-                })
-
-            elif tool_name == "get_transcript":
-                sid = args.get("session_id", "")
-                session = session_manager.get_session(sid)
-                if not session:
+                # Check completed calls first
+                summary = session_manager.get_completed_session(sid)
+                if summary:
                     return _jsonrpc_response(req_id, {
-                        "content": [{"type": "text", "text": '{"error": "session not found"}'}],
+                        "content": [{
+                            "type": "text",
+                            "text": json.dumps(summary, ensure_ascii=False),
+                        }],
                     })
-                latest = session.get_latest_transcript()
+                # Maybe still active
+                session = session_manager.get_session(sid)
+                if session:
+                    return _jsonrpc_response(req_id, {
+                        "content": [{
+                            "type": "text",
+                            "text": json.dumps({
+                                "status": "call_still_active",
+                                "turns_so_far": len(session.history),
+                            }),
+                        }],
+                    })
                 return _jsonrpc_response(req_id, {
                     "content": [{
                         "type": "text",
-                        "text": json.dumps(latest or {"text": "", "emotion": {"emotion": "neutral"}}),
+                        "text": '{"error": "session not found"}',
                     }],
                 })
 
-            elif tool_name == "send_voice_reply":
+            elif tool_name == "push_message":
                 sid = args.get("session_id", "")
                 text = args.get("text", "")
                 session = session_manager.get_session(sid)
+                if not session or not session.websocket:
+                    return _jsonrpc_response(req_id, {
+                        "content": [{
+                            "type": "text",
+                            "text": '{"error": "no active call with this session_id"}',
+                        }],
+                    })
+                try:
+                    # Send text to frontend
+                    await session.websocket.send_json({
+                        "type": "response",
+                        "text": text,
+                        "source": "push",
+                    })
+                    # Synthesize and stream audio
+                    async for audio_chunk in session.tts_engine.synthesize_stream(text):
+                        await session.websocket.send_bytes(audio_chunk)
+                    await session.websocket.send_json({"type": "audio_end"})
+                    session.add_response(text)
+                    return _jsonrpc_response(req_id, {
+                        "content": [{
+                            "type": "text",
+                            "text": json.dumps({"status": "delivered", "text": text}),
+                        }],
+                    })
+                except Exception as e:
+                    return _jsonrpc_response(req_id, {
+                        "content": [{
+                            "type": "text",
+                            "text": json.dumps({"error": str(e)}),
+                        }],
+                    })
+
+            elif tool_name == "get_live_emotion":
+                sid = args.get("session_id", "")
+                session = session_manager.get_session(sid)
                 if not session:
                     return _jsonrpc_response(req_id, {
-                        "content": [{"type": "text", "text": '{"error": "session not found"}'}],
+                        "content": [{
+                            "type": "text",
+                            "text": '{"error": "no active call"}',
+                        }],
                     })
-                # TTS will be handled through WebSocket
-                session.add_response(text)
-                return _jsonrpc_response(req_id, {
-                    "content": [{
-                        "type": "text",
-                        "text": json.dumps({"status": "queued", "text": text}),
-                    }],
-                })
-
-            elif tool_name == "get_call_status":
-                sessions = session_manager.list_sessions()
+                latest = session.get_latest_transcript()
+                emotion = latest.get("emotion", {}) if latest else {}
                 return _jsonrpc_response(req_id, {
                     "content": [{
                         "type": "text",
                         "text": json.dumps({
-                            "active_sessions": sessions,
-                            "count": len(sessions),
-                        }),
+                            "emotion": emotion,
+                            "last_text": latest.get("text", "") if latest else "",
+                        }, ensure_ascii=False),
                     }],
                 })
 

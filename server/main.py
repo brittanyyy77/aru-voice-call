@@ -39,7 +39,7 @@ app = FastAPI(title="aru-voice-call", lifespan=lifespan)
 # Serve frontend
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
-# MCP routes
+# MCP routes (optional: for Aru post-call sync & push messages)
 if os.getenv("MCP_ENABLED", "true").lower() == "true":
     setup_mcp_routes(app, session_manager)
 
@@ -51,6 +51,15 @@ async def index():
 
 @app.websocket("/ws/call/{session_id}")
 async def voice_call(websocket: WebSocket, session_id: str):
+    """Fully autonomous voice call loop.
+    
+    The entire cycle runs server-side without MCP:
+    User speaks -> Whisper transcribes -> emotion analyzed -> 
+    LLM generates reply -> ElevenLabs synthesizes -> audio sent back.
+    
+    MCP is only used AFTER the call ends to sync transcript back to Aru,
+    or to let Aru push a message into an active call.
+    """
     await websocket.accept()
     logger.info(f"Voice call connected: {session_id}")
 
@@ -60,6 +69,9 @@ async def voice_call(websocket: WebSocket, session_id: str):
     tts_engine = session.tts_engine
     llm_client = session.llm_client
 
+    # Store websocket ref so MCP can push messages into active call
+    session.websocket = websocket
+
     try:
         while True:
             data = await websocket.receive()
@@ -67,15 +79,16 @@ async def voice_call(websocket: WebSocket, session_id: str):
             if "bytes" in data:
                 audio_chunk = data["bytes"]
 
-                # Transcribe
+                # Step 1: Transcribe audio chunk
                 result = await transcriber.process_chunk(audio_chunk)
 
                 if result and result.get("text"):
-                    # Analyze emotion from accumulated audio
+                    # Step 2: Analyze emotion from audio
                     emotion = await emotion_analyzer.analyze(
                         transcriber.get_audio_buffer()
                     )
 
+                    # Send live transcript to frontend
                     transcript_msg = {
                         "type": "transcript",
                         "text": result["text"],
@@ -84,13 +97,11 @@ async def voice_call(websocket: WebSocket, session_id: str):
                     }
                     await websocket.send_json(transcript_msg)
 
-                    # If final transcript, generate response
+                    # Step 3-5: On final transcript, auto-reply
                     if result.get("is_final"):
-                        session.add_transcript(
-                            result["text"], emotion
-                        )
+                        session.add_transcript(result["text"], emotion)
 
-                        # Get LLM response
+                        # Step 3: LLM generates response
                         response_text = await llm_client.chat(
                             result["text"],
                             emotion=emotion,
@@ -99,42 +110,42 @@ async def voice_call(websocket: WebSocket, session_id: str):
 
                         session.add_response(response_text)
 
-                        # Send text response
-                        await websocket.send_json(
-                            {
-                                "type": "response",
-                                "text": response_text,
-                            }
-                        )
+                        # Send text response to frontend
+                        await websocket.send_json({
+                            "type": "response",
+                            "text": response_text,
+                        })
 
-                        # Generate and stream TTS
-                        async for audio_chunk in tts_engine.synthesize_stream(
+                        # Step 4-5: TTS and stream audio back
+                        async for tts_chunk in tts_engine.synthesize_stream(
                             response_text
                         ):
-                            await websocket.send_bytes(audio_chunk)
+                            await websocket.send_bytes(tts_chunk)
 
-                        # Signal end of audio
-                        await websocket.send_json(
-                            {"type": "audio_end"}
-                        )
+                        await websocket.send_json({"type": "audio_end"})
 
-                        # Clear audio buffer for next utterance
+                        # Ready for next utterance
                         transcriber.clear_buffer()
 
             elif "text" in data:
                 msg = json.loads(data["text"])
                 if msg.get("type") == "end_call":
                     break
+                elif msg.get("type") == "ping":
+                    await websocket.send_json({"type": "pong"})
 
     except WebSocketDisconnect:
         logger.info(f"Voice call disconnected: {session_id}")
     except Exception as e:
         logger.error(f"Error in voice call: {e}")
-        await websocket.send_json(
-            {"type": "error", "message": str(e)}
-        )
+        try:
+            await websocket.send_json({"type": "error", "message": str(e)})
+        except Exception:
+            pass
     finally:
-        session_manager.end_session(session_id)
+        # Post-call: save transcript for MCP sync
+        session.websocket = None
+        await session_manager.finalize_session(session_id)
 
 
 if __name__ == "__main__":
