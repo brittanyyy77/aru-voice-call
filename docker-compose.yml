@@ -1,0 +1,24 @@
+services:
+  aru-voice-call:
+    build: .
+    container_name: aru-voice-call
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8443}:${PORT:-8443}"
+    env_file:
+      - .env
+    volumes:
+      - ./certs:/certs:ro
+      - whisper-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Remove the deploy.resources block if you don't have a GPU
+    # faster-whisper will fall back to CPU automatically
+
+volumes:
+  whisper-cache:
