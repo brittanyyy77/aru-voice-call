@@ -9,13 +9,13 @@ logger = logging.getLogger(__name__)
 
 
 class Transcriber:
-    """Speech-to-text with two modes:
-    - cloud: Groq/Deepgram API (recommended for small VPS)
-    - local: faster-whisper (needs GPU or beefy CPU)
+    """Speech-to-text with multiple providers:
+    - cloud: groq, deepgram, aliyun, volcengine, baidu
+    - local: faster-whisper
     """
 
     def __init__(self):
-        self.mode = os.getenv("STT_MODE", "cloud")  # cloud or local
+        self.mode = os.getenv("STT_MODE", "cloud")
         self.language = os.getenv("LANGUAGE", "zh")
         self.audio_buffer = bytearray()
         self.sample_rate = 16000
@@ -43,17 +43,43 @@ class Transcriber:
         )
 
     def _init_cloud(self):
-        self.stt_provider = os.getenv("STT_PROVIDER", "groq")  # groq or deepgram
+        self.stt_provider = os.getenv("STT_PROVIDER", "groq")
         self.stt_api_key = os.getenv("STT_API_KEY", "")
+        self.stt_model = os.getenv("STT_MODEL", "")
 
-        if self.stt_provider == "groq":
-            self.stt_url = "https://api.groq.com/openai/v1/audio/transcriptions"
-            self.stt_model = os.getenv("STT_MODEL", "whisper-large-v3")
-        elif self.stt_provider == "deepgram":
-            self.stt_url = "https://api.deepgram.com/v1/listen"
-            self.stt_model = os.getenv("STT_MODEL", "nova-2")
-        else:
-            raise ValueError(f"Unknown STT provider: {self.stt_provider}")
+        providers = {
+            "groq": {
+                "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+                "default_model": "whisper-large-v3",
+            },
+            "deepgram": {
+                "url": "https://api.deepgram.com/v1/listen",
+                "default_model": "nova-2",
+            },
+            "aliyun": {
+                "url": os.getenv("STT_ENDPOINT", "https://nls-gateway.aliyuncs.com/stream/v1/asr"),
+                "default_model": "default",
+            },
+            "volcengine": {
+                "url": os.getenv("STT_ENDPOINT", "https://openspeech.bytedance.com/api/v1/asr"),
+                "default_model": "default",
+            },
+            "baidu": {
+                "url": "https://vop.baidu.com/server_api",
+                "default_model": "default",
+            },
+        }
+
+        if self.stt_provider not in providers:
+            raise ValueError(
+                f"Unknown STT provider: {self.stt_provider}. "
+                f"Supported: {', '.join(providers.keys())}"
+            )
+
+        cfg = providers[self.stt_provider]
+        self.stt_url = cfg["url"]
+        if not self.stt_model:
+            self.stt_model = cfg["default_model"]
 
         logger.info(f"Using cloud STT: {self.stt_provider} ({self.stt_model})")
 
@@ -111,7 +137,6 @@ class Transcriber:
         return text
 
     async def _transcribe_cloud(self, audio_data: np.ndarray) -> str:
-        # Convert to WAV bytes for API upload
         import soundfile as sf
 
         wav_buffer = io.BytesIO()
@@ -119,10 +144,17 @@ class Transcriber:
         wav_bytes = wav_buffer.getvalue()
 
         try:
-            if self.stt_provider == "groq":
-                return await self._transcribe_groq(wav_bytes)
-            elif self.stt_provider == "deepgram":
-                return await self._transcribe_deepgram(wav_bytes)
+            handler = {
+                "groq": self._transcribe_groq,
+                "deepgram": self._transcribe_deepgram,
+                "aliyun": self._transcribe_aliyun,
+                "volcengine": self._transcribe_volcengine,
+                "baidu": self._transcribe_baidu,
+            }.get(self.stt_provider)
+
+            if handler:
+                return await handler(wav_bytes)
+            return ""
         except Exception as e:
             logger.error(f"Cloud STT error: {e}")
             return ""
@@ -166,6 +198,98 @@ class Transcriber:
                 if alts:
                     return alts[0].get("transcript", "").strip()
             return ""
+
+    async def _transcribe_aliyun(self, wav_bytes: bytes) -> str:
+        """Aliyun NLS one-sentence recognition."""
+        import base64
+        import json
+
+        # Aliyun uses appkey-based auth
+        appkey = os.getenv("STT_APPKEY", "")
+        token = self.stt_api_key
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                self.stt_url,
+                headers={
+                    "X-NLS-Token": token,
+                    "Content-Type": "application/octet-stream",
+                },
+                params={
+                    "appkey": appkey,
+                    "format": "wav",
+                    "sample_rate": self.sample_rate,
+                },
+                content=wav_bytes,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("result", "").strip()
+
+    async def _transcribe_volcengine(self, wav_bytes: bytes) -> str:
+        """Volcengine (ByteDance) ASR."""
+        import base64
+
+        appid = os.getenv("STT_APPID", "")
+        payload = {
+            "app": {"appid": appid, "cluster": "volcengine_streaming_common"},
+            "user": {"uid": "aru-voice-call"},
+            "audio": {
+                "format": "wav",
+                "rate": self.sample_rate,
+                "language": "zh-CN",
+                "bits": 16,
+                "channel": 1,
+            },
+            "request": {
+                "sequence": 1,
+                "nbest": 1,
+            },
+            "addition": {"with_speaker_info": False},
+        }
+
+        audio_b64 = base64.b64encode(wav_bytes).decode()
+        payload["audio"]["data"] = audio_b64
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                self.stt_url,
+                headers={
+                    "Authorization": f"Bearer;{self.stt_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            utterances = data.get("result", {}).get("text", "")
+            return utterances.strip() if utterances else ""
+
+    async def _transcribe_baidu(self, wav_bytes: bytes) -> str:
+        """Baidu ASR short audio."""
+        import base64
+
+        audio_b64 = base64.b64encode(wav_bytes).decode()
+        payload = {
+            "format": "wav",
+            "rate": self.sample_rate,
+            "channel": 1,
+            "cuid": "aru-voice-call",
+            "token": self.stt_api_key,
+            "speech": audio_b64,
+            "len": len(wav_bytes),
+        }
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                self.stt_url,
+                headers={"Content-Type": "application/json"},
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            results = data.get("result", [])
+            return results[0].strip() if results else ""
 
     def _bytes_to_numpy(self, audio_bytes: bytearray) -> np.ndarray:
         try:
