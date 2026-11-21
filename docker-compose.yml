@@ -9,16 +9,12 @@ services:
       - .env
     volumes:
       - ./certs:/certs:ro
-      - whisper-cache:/root/.cache/huggingface
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    # Remove the deploy.resources block if you don't have a GPU
-    # faster-whisper will fall back to CPU automatically
 
-volumes:
-  whisper-cache:
+    # Uncomment below ONLY if using STT_MODE=local with GPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
