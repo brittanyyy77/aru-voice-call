@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Auris Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Pinyon+Script&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:#4C2E1B;height:100%;overflow:hidden}
+body{font-family:'Outfit',sans-serif;color:#FFE9B2;display:flex;align-items:center;justify-content:center}
+.container{width:100%;max-width:400px;height:100vh;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.progress{display:flex;gap:6px;padding:20px 24px 0;position:relative;z-index:2}
+.progress .dot{flex:1;height:3px;border-radius:2px;background:rgba(255,233,178,.15);transition:background .4s ease}
+.progress .dot.done{background:#FFE9B2}
+.progress .dot.active{background:#E5F9FF}
+.steps{flex:1;position:relative;overflow:hidden}
+.step{position:absolute;inset:0;display:flex;flex-direction:column;padding:28px 24px;opacity:0;transform:translateX(60px);transition:opacity .5s cubic-bezier(.25,.46,.45,.94),transform .5s cubic-bezier(.25,.46,.45,.94);pointer-events:none;overflow-y:auto}
+.step.active{opacity:1;transform:translateX(0);pointer-events:auto}
+.step.left{opacity:0;transform:translateX(-60px)}
+.step-num{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#E5F9FF;opacity:.7;margin-bottom:8px}
+.step-title{font-family:'Playfair Display',serif;font-size:28px;font-weight:600;letter-spacing:1px;margin-bottom:6px;color:#E5F9FF}
+.step-sub{font-size:14px;opacity:.6;margin-bottom:28px;line-height:1.6}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:13px;opacity:.6;margin-bottom:6px;letter-spacing:.5px}
+.field input,.field select{width:100%;padding:12px 16px;border-radius:12px;border:1px solid rgba(255,233,178,.15);background:rgba(255,233,178,.06);color:#FFE9B2;font-size:15px;font-family:'Outfit',sans-serif;outline:none;transition:border-color .3s}
+.field input::placeholder{color:rgba(255,233,178,.3)}
+.field input:focus,.field select:focus{border-color:rgba(229,249,255,.6)}
+.field select{appearance:none;cursor:pointer}
+.field select option{background:#4C2E1B;color:#FFE9B2}
+.field .hint{font-size:12px;opacity:.4;margin-top:4px;line-height:1.5}
+.field .hint a{color:#E5F9FF;opacity:.7;text-decoration:none}
+.mcp-block{background:rgba(229,249,255,.04);border:1px solid rgba(229,249,255,.15);border-radius:14px;padding:16px;margin-top:8px;margin-bottom:16px}
+.mcp-label{font-size:14px;font-weight:500;margin-bottom:4px;color:#E5F9FF}
+.mcp-sub{font-size:12px;opacity:.4;margin-bottom:12px}
+.mcp-url{display:flex;align-items:center;gap:8px}
+.mcp-url input{flex:1;font-size:13px;padding:10px 12px;background:rgba(255,233,178,.04);border:1px solid rgba(255,233,178,.1);border-radius:8px;color:#E5F9FF;font-family:'Outfit',sans-serif;outline:none}
+.mcp-url button{padding:10px 14px;border-radius:8px;border:none;background:rgba(255,233,178,.12);color:#FFE9B2;font-size:13px;cursor:pointer;white-space:nowrap;font-family:'Outfit',sans-serif;transition:background .2s}
+.mcp-url button:active{background:rgba(255,233,178,.2)}
+.btn-row{padding:16px 24px 32px;display:flex;gap:12px;position:relative;z-index:2}
+.btn{flex:1;padding:11px;border-radius:12px;border:none;font-size:14px;font-weight:500;font-family:'Outfit',sans-serif;cursor:pointer;transition:transform .2s,opacity .2s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,#E5F9FF,#b8ecf7);color:#4C2E1B}
+.btn-secondary{background:rgba(255,233,178,.08);color:#FFE9B2;border:1px solid rgba(255,233,178,.15)}
+.btn-big{padding:14px 28px;font-size:15px;border-radius:14px;width:auto;display:inline-block;background:linear-gradient(135deg,#E5F9FF,#b8ecf7);color:#4C2E1B;font-weight:600;letter-spacing:1px}
+.btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.test-result{font-size:13px;margin-top:8px;min-height:20px;transition:opacity .3s}
+.test-result.ok{color:#E5F9FF}
+.test-result.fail{color:#fca5a5}
+.deploy-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:12px;border:none;background:linear-gradient(135deg,#E5F9FF,#b8ecf7);color:#4C2E1B;font-size:15px;font-weight:500;font-family:'Outfit',sans-serif;cursor:pointer;transition:transform .2s;text-decoration:none;margin-bottom:16px}
+.deploy-btn:active{transform:scale(.97)}
+.final-center{display:flex;flex-direction:column;align-items:center;gap:24px;margin-top:40px;opacity:.9;animation:breathe 3s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.02);opacity:1}}
+.provider-fields{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.provider-fields.show{max-height:300px}
+.step::-webkit-scrollbar{display:none}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="progress" id="progress">
+    <div class="dot active" data-i="0"></div>
+    <div class="dot" data-i="1"></div>
+    <div class="dot" data-i="2"></div>
+    <div class="dot" data-i="3"></div>
+  </div>
+  <div class="steps" id="steps">
+    <div class="step active" data-step="0">
+      <span class="step-num">Step 1 of 4</span>
+      <div class="step-title">Deploy your server</div>
+      <div class="step-sub">通话需要一台服务器来处理语音。<br>点击下方按钮，一键部署到 Render，免费。</div>
+      <a class="deploy-btn" href="https://render.com/deploy" target="_blank">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4C2E1B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14l7-7 3 3-7 7H4v-3z"/><path d="M18 2l4 4-2 2-4-4 2-2z"/></svg>
+        <span>Deploy to Render</span>
+      </a>
+      <div class="field">
+        <div class="hint">部署完成后，Render 会给你一个地址，类似<br>https://your-app.onrender.com<br>复制下来，下一步要用。</div>
+      </div>
+    </div>
+    <div class="step" data-step="1">
+      <span class="step-num">Step 2 of 4</span>
+      <div class="step-title">Connect your server</div>
+      <div class="step-sub">填入服务器地址和口令。</div>
+      <div class="field">
+        <label>服务器地址</label>
+        <input type="url" id="serverUrl" placeholder="https://your-app.onrender.com">
+      </div>
+      <div class="field">
+        <label>口令 (x-vox-token)</label>
+        <input type="text" id="voxToken" placeholder="你在 Render 设置的 VOX_TOKEN">
+      </div>
+      <button class="btn btn-secondary" style="width:auto;flex:none;margin-bottom:4px" onclick="testConnection()">测试连接</button>
+      <div class="test-result" id="testResult"></div>
+      <div class="mcp-block">
+        <div class="mcp-label">接 MCP</div>
+        <div class="mcp-sub">把这行地址粘到 Aru 里</div>
+        <div class="mcp-url">
+          <input type="text" id="mcpUrl" readonly value="等待填入服务器地址...">
+          <button onclick="copyMcp()">复制</button>
+        </div>
+      </div>
+    </div>
+    <div class="step" data-step="2">
+      <span class="step-num">Step 3 of 4</span>
+      <div class="step-title">Choose a voice</div>
+      <div class="step-sub">选一个语音供应商，让 TA 的声音活起来。</div>
+      <div class="field">
+        <label>语音供应商</label>
+        <select id="providerSelect" onchange="onProviderChange()">
+          <option value="">请选择...</option>
+          <option value="minimax">MiniMax</option>
+          <option value="elevenlabs">ElevenLabs</option>
+          <option value="mossland">Mossland</option>
+        </select>
+      </div>
+      <div class="provider-fields" id="providerFields">
+        <div class="field">
+          <label>API Key</label>
+          <input type="password" id="providerKey" placeholder="填入你的 API Key">
+        </div>
+        <div class="field" id="groupIdField" style="display:none">
+          <label>Group ID</label>
+          <input type="text" id="providerGroup" placeholder="MiniMax Group ID">
+        </div>
+        <div class="field">
+          <label>Voice ID</label>
+          <input type="text" id="providerVoice" placeholder="音色 ID">
+          <div class="hint" id="providerHint"></div>
+        </div>
+      </div>
+    </div>
+    <div class="step" data-step="3">
+      <span class="step-num">Step 4 of 4</span>
+      <div class="step-title">Ready to call</div>
+      <div class="step-sub">所有设置已完成。</div>
+      <div class="final-center">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#FFE9B2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+        <button class="btn btn-big" onclick="firstCall()">Make your first call</button>
+      </div>
+    </div>
+  </div>
+  <div class="btn-row" id="btnRow">
+    <button class="btn btn-secondary" id="prevBtn" onclick="prev()" style="display:none">返回</button>
+    <button class="btn btn-primary" id="nextBtn" onclick="next()">下一步</button>
+  </div>
+</div>
+<script>
+var current=0,total=4;
+function updateUI(){
+  var steps=document.querySelectorAll('.step'),dots=document.querySelectorAll('.progress .dot');
+  steps.forEach(function(s,i){s.classList.remove('active','left');if(i===current)s.classList.add('active');else if(i<current)s.classList.add('left');});
+  dots.forEach(function(d,i){d.classList.remove('done','active');if(i<current)d.classList.add('done');else if(i===current)d.classList.add('active');});
+  document.getElementById('prevBtn').style.display=current>0?'':'none';
+  var br=document.getElementById('btnRow');
+  if(current===3){br.style.display='none';}else{br.style.display='flex';document.getElementById('nextBtn').textContent=current===2?'完成设置':'下一步';}
+}
+function next(){if(current<total-1){current++;updateUI();}}
+function prev(){if(current>0){current--;updateUI();}}
+document.getElementById('serverUrl').addEventListener('input',function(){var u=this.value.replace(/\/+$/,'');document.getElementById('mcpUrl').value=u?u+'/mcp':'等待填入服务器地址...';});
+function testConnection(){
+  var r=document.getElementById('testResult'),u=document.getElementById('serverUrl').value.replace(/\/+$/,''),t=document.getElementById('voxToken').value;
+  if(!u){r.className='test-result fail';r.textContent='请先填入服务器地址';return;}
+  r.className='test-result';r.textContent='连接中...';
+  fetch(u+'/',{headers:{'x-vox-token':t}}).then(function(r){return r.json();}).then(function(j){
+    if(j&&j.alive){r.className='test-result ok';r.textContent='✓ 连接成功';}else{r.className='test-result fail';r.textContent='✗ 服务器响应异常';}
+  }).catch(function(){r.className='test-result fail';r.textContent='✗ 无法连接，请检查地址和口令';});
+}
+function copyMcp(){var i=document.getElementById('mcpUrl');i.select();document.execCommand('copy');var b=i.nextElementSibling;b.textContent='已复制';setTimeout(function(){b.textContent='复制';},1500);}
+var providerHints={
+  minimax:'Key: <a href="https://www.minimax.chat" target="_blank">MiniMax 控制台</a> \u2192 API Keys \u2192 创建<br>Group ID: 控制台右上角账号信息里复制<br>Voice ID: 控制台 \u2192 语音 \u2192 音色市场，选好后复制 voice_id',
+  elevenlabs:'Key: <a href="https://elevenlabs.io" target="_blank">ElevenLabs</a> \u2192 Profile \u2192 API Key<br>Voice ID: Voices \u2192 选一个音色 \u2192 复制 Voice ID',
+  mossland:'Key: <a href="https://mossland.ai" target="_blank">Mossland</a> \u2192 克隆音色后获取<br>Voice ID: 克隆完成后自动生成'
+};
+function onProviderChange(){
+  var v=document.getElementById('providerSelect').value,f=document.getElementById('providerFields'),h=document.getElementById('providerHint'),g=document.getElementById('groupIdField');
+  if(v){f.classList.add('show');h.innerHTML=providerHints[v]||'';g.style.display=v==='minimax'?'':'none';}else{f.classList.remove('show');h.innerHTML='';g.style.display='none';}
+}
+function firstCall(){
+  var c={server:document.getElementById('serverUrl').value,token:document.getElementById('voxToken').value,provider:document.getElementById('providerSelect').value,key:document.getElementById('providerKey').value,voice:document.getElementById('providerVoice').value,onboarded:true};
+  localStorage.setItem('auris_config',JSON.stringify(c));
+  window.location.href='index.html';
+}
+updateUI();
+</script>
+</body>
+</html>
