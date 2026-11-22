@@ -70,7 +70,7 @@ body{font-family:'Outfit',sans-serif;color:#FFE9B2;display:flex;align-items:cent
       <span class="step-num">Step 1 of 4</span>
       <div class="step-title">Deploy your server</div>
       <div class="step-sub">通话需要一台服务器来处理语音。<br>点击下方按钮，一键部署到 Render，免费。</div>
-      <a class="deploy-btn" href="https://render.com/deploy" target="_blank">
+      <a class="deploy-btn" href="https://render.com/deploy?repo=https://github.com/brittanyyy77/voice-call" target="_blank">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4C2E1B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14l7-7 3 3-7 7H4v-3z"/><path d="M18 2l4 4-2 2-4-4 2-2z"/></svg>
         <span>Deploy to Render</span>
       </a>
@@ -163,8 +163,8 @@ function testConnection(){
   if(!u){r.className='test-result fail';r.textContent='请先填入服务器地址';return;}
   r.className='test-result';r.textContent='连接中...';
   fetch(u+'/',{headers:{'x-vox-token':t}}).then(function(r){return r.json();}).then(function(j){
-    if(j&&j.alive){r.className='test-result ok';r.textContent='✓ 连接成功';}else{r.className='test-result fail';r.textContent='✗ 服务器响应异常';}
-  }).catch(function(){r.className='test-result fail';r.textContent='✗ 无法连接，请检查地址和口令';});
+    if(j&&j.alive){r.className='test-result ok';r.textContent='\u2713 连接成功';}else{r.className='test-result fail';r.textContent='\u2717 服务器响应异常';}
+  }).catch(function(){r.className='test-result fail';r.textContent='\u2717 无法连接，请检查地址和口令';});
 }
 function copyMcp(){var i=document.getElementById('mcpUrl');i.select();document.execCommand('copy');var b=i.nextElementSibling;b.textContent='已复制';setTimeout(function(){b.textContent='复制';},1500);}
 var providerHints={
@@ -177,9 +177,22 @@ function onProviderChange(){
   if(v){f.classList.add('show');h.innerHTML=providerHints[v]||'';g.style.display=v==='minimax'?'':'none';}else{f.classList.remove('show');h.innerHTML='';g.style.display='none';}
 }
 function firstCall(){
-  var c={server:document.getElementById('serverUrl').value,token:document.getElementById('voxToken').value,provider:document.getElementById('providerSelect').value,key:document.getElementById('providerKey').value,voice:document.getElementById('providerVoice').value,onboarded:true};
-  localStorage.setItem('auris_config',JSON.stringify(c));
-  window.location.href='index.html';
+  var srv=document.getElementById('serverUrl').value.replace(/\/+$/,'');
+  var tok=document.getElementById('voxToken').value;
+  var cfg={server:srv,token:tok,provider:document.getElementById('providerSelect').value,key:document.getElementById('providerKey').value,voice:document.getElementById('providerVoice').value,group:document.getElementById('providerGroup').value||'',onboarded:true};
+  localStorage.setItem('auris_config',JSON.stringify(cfg));
+  // Send config to server so it uses the right TTS provider and voice
+  fetch(srv+'/config',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-vox-token':tok},
+    body:JSON.stringify({provider:cfg.provider,key:cfg.key,voice:cfg.voice,group:cfg.group})
+  }).then(function(r){return r.json();}).then(function(j){
+    if(j&&j.ok){window.location.href='call.html';}
+    else{alert('服务器配置失败，请检查地址和口令');}
+  }).catch(function(){
+    // If /config not implemented yet, still save locally and proceed
+    window.location.href='call.html';
+  });
 }
 updateUI();
 </script>
