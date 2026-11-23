@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Auris Setup</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Pinyon+Script&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:#4C2E1B;height:100%;overflow:hidden}
@@ -52,9 +52,14 @@ body{font-family:'Outfit',sans-serif;color:#FFE9B2;display:flex;align-items:cent
 .deploy-btn:active{transform:scale(.97)}
 .final-center{display:flex;flex-direction:column;align-items:center;gap:24px;margin-top:40px;opacity:.9;animation:breathe 3s ease-in-out infinite}
 @keyframes breathe{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.02);opacity:1}}
-.provider-fields{max-height:0;overflow:hidden;transition:max-height .4s ease}
-.provider-fields.show{max-height:300px}
 .step::-webkit-scrollbar{display:none}
+.voice-card{background:rgba(229,249,255,.04);border:1px solid rgba(229,249,255,.12);border-radius:14px;padding:16px;margin-bottom:12px}
+.voice-card .vc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.voice-card .vc-title{font-size:14px;font-weight:500;color:#E5F9FF}
+.voice-card .vc-remove{background:none;border:none;color:rgba(255,233,178,.4);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:8px}
+.voice-card .vc-remove:hover{color:#fca5a5;background:rgba(252,165,165,.1)}
+.add-voice-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;border-radius:12px;border:1px dashed rgba(229,249,255,.2);background:transparent;color:#E5F9FF;opacity:.6;font-size:13px;font-family:'Outfit',sans-serif;cursor:pointer;transition:opacity .2s,border-color .2s;margin-bottom:12px}
+.add-voice-btn:hover{opacity:.9;border-color:rgba(229,249,255,.4)}
 </style>
 </head>
 <body>
@@ -69,71 +74,41 @@ body{font-family:'Outfit',sans-serif;color:#FFE9B2;display:flex;align-items:cent
     <div class="step active" data-step="0">
       <span class="step-num">Step 1 of 4</span>
       <div class="step-title">Deploy your server</div>
-      <div class="step-sub">通话需要一台服务器来处理语音。<br>点击下方按钮，一键部署到 Render，免费。</div>
+      <div class="step-sub">\u901a\u8bdd\u9700\u8981\u4e00\u53f0\u670d\u52a1\u5668\u6765\u5904\u7406\u8bed\u97f3\u3002<br>\u70b9\u51fb\u4e0b\u65b9\u6309\u94ae\uff0c\u4e00\u952e\u90e8\u7f72\u5230 Render\uff0c\u514d\u8d39\u3002</div>
       <a class="deploy-btn" href="https://render.com/deploy?repo=https://github.com/brittanyyy77/voice-call" target="_blank">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4C2E1B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14l7-7 3 3-7 7H4v-3z"/><path d="M18 2l4 4-2 2-4-4 2-2z"/></svg>
         <span>Deploy to Render</span>
       </a>
-      <div class="field">
-        <div class="hint">部署完成后，Render 会给你一个地址，类似<br>https://your-app.onrender.com<br>复制下来，下一步要用。</div>
-      </div>
+      <div class="field"><div class="hint">\u90e8\u7f72\u5b8c\u6210\u540e\uff0cRender \u4f1a\u7ed9\u4f60\u4e00\u4e2a\u5730\u5740\uff0c\u7c7b\u4f3c<br>https://your-app.onrender.com<br>\u590d\u5236\u4e0b\u6765\uff0c\u4e0b\u4e00\u6b65\u8981\u7528\u3002</div></div>
     </div>
     <div class="step" data-step="1">
       <span class="step-num">Step 2 of 4</span>
       <div class="step-title">Connect your server</div>
-      <div class="step-sub">填入服务器地址和口令。</div>
-      <div class="field">
-        <label>服务器地址</label>
-        <input type="url" id="serverUrl" placeholder="https://your-app.onrender.com">
-      </div>
-      <div class="field">
-        <label>口令 (x-vox-token)</label>
-        <input type="text" id="voxToken" placeholder="你在 Render 设置的 VOX_TOKEN">
-      </div>
-      <button class="btn btn-secondary" style="width:auto;flex:none;margin-bottom:4px" onclick="testConnection()">测试连接</button>
+      <div class="step-sub">\u586b\u5165\u670d\u52a1\u5668\u5730\u5740\u548c\u53e3\u4ee4\u3002</div>
+      <div class="field"><label>\u670d\u52a1\u5668\u5730\u5740</label><input type="url" id="serverUrl" placeholder="https://your-app.onrender.com"></div>
+      <div class="field"><label>\u53e3\u4ee4 (x-vox-token)</label><input type="text" id="voxToken" placeholder="VOX_TOKEN"></div>
+      <button class="btn btn-secondary" style="width:auto;flex:none;margin-bottom:4px" onclick="testConnection()">\u6d4b\u8bd5\u8fde\u63a5</button>
       <div class="test-result" id="testResult"></div>
       <div class="mcp-block">
-        <div class="mcp-label">接 MCP</div>
-        <div class="mcp-sub">把这行地址粘到 Aru 里</div>
+        <div class="mcp-label">\u63a5 MCP</div>
+        <div class="mcp-sub">\u628a\u8fd9\u884c\u5730\u5740\u7c98\u5230 Aru \u91cc</div>
         <div class="mcp-url">
-          <input type="text" id="mcpUrl" readonly value="等待填入服务器地址...">
-          <button onclick="copyMcp()">复制</button>
+          <input type="text" id="mcpUrl" readonly value="...">
+          <button onclick="copyMcp()">\u590d\u5236</button>
         </div>
       </div>
     </div>
     <div class="step" data-step="2">
       <span class="step-num">Step 3 of 4</span>
-      <div class="step-title">Choose a voice</div>
-      <div class="step-sub">选一个语音供应商，让 TA 的声音活起来。</div>
-      <div class="field">
-        <label>语音供应商</label>
-        <select id="providerSelect" onchange="onProviderChange()">
-          <option value="">请选择...</option>
-          <option value="minimax">MiniMax</option>
-          <option value="elevenlabs">ElevenLabs</option>
-          <option value="mossland">Mossland</option>
-        </select>
-      </div>
-      <div class="provider-fields" id="providerFields">
-        <div class="field">
-          <label>API Key</label>
-          <input type="password" id="providerKey" placeholder="填入你的 API Key">
-        </div>
-        <div class="field" id="groupIdField" style="display:none">
-          <label>Group ID</label>
-          <input type="text" id="providerGroup" placeholder="MiniMax Group ID">
-        </div>
-        <div class="field">
-          <label>Voice ID</label>
-          <input type="text" id="providerVoice" placeholder="音色 ID">
-          <div class="hint" id="providerHint"></div>
-        </div>
-      </div>
+      <div class="step-title">Choose voices</div>
+      <div class="step-sub">\u6dfb\u52a0\u4e00\u4e2a\u6216\u591a\u4e2a\u58f0\u97f3\uff0c\u6bcf\u4e2a AI \u53ef\u4ee5\u6709\u81ea\u5df1\u7684\u58f0\u97f3\u3002</div>
+      <div id="voiceList"></div>
+      <button class="add-voice-btn" onclick="addVoice()">+ Add another voice</button>
     </div>
     <div class="step" data-step="3">
       <span class="step-num">Step 4 of 4</span>
       <div class="step-title">Ready to call</div>
-      <div class="step-sub">所有设置已完成。</div>
+      <div class="step-sub">\u6240\u6709\u8bbe\u7f6e\u5df2\u5b8c\u6210\u3002</div>
       <div class="final-center">
         <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#FFE9B2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
         <button class="btn btn-big" onclick="firstCall()">Make your first call</button>
@@ -141,60 +116,25 @@ body{font-family:'Outfit',sans-serif;color:#FFE9B2;display:flex;align-items:cent
     </div>
   </div>
   <div class="btn-row" id="btnRow">
-    <button class="btn btn-secondary" id="prevBtn" onclick="prev()" style="display:none">返回</button>
-    <button class="btn btn-primary" id="nextBtn" onclick="next()">下一步</button>
+    <button class="btn btn-secondary" id="prevBtn" onclick="prev()" style="display:none">\u8fd4\u56de</button>
+    <button class="btn btn-primary" id="nextBtn" onclick="next()">\u4e0b\u4e00\u6b65</button>
   </div>
 </div>
 <script>
-var current=0,total=4;
-function updateUI(){
-  var steps=document.querySelectorAll('.step'),dots=document.querySelectorAll('.progress .dot');
-  steps.forEach(function(s,i){s.classList.remove('active','left');if(i===current)s.classList.add('active');else if(i<current)s.classList.add('left');});
-  dots.forEach(function(d,i){d.classList.remove('done','active');if(i<current)d.classList.add('done');else if(i===current)d.classList.add('active');});
-  document.getElementById('prevBtn').style.display=current>0?'':'none';
-  var br=document.getElementById('btnRow');
-  if(current===3){br.style.display='none';}else{br.style.display='flex';document.getElementById('nextBtn').textContent=current===2?'完成设置':'下一步';}
-}
+var current=0,total=4,voiceCount=0;
+var providerHints={minimax:'Key: MiniMax console. Group ID: account info. Voice ID: voice market.',elevenlabs:'Key: ElevenLabs Profile. Voice ID: Voices page.',mossland:'Key: after cloning. Voice ID: auto-generated.'};
+function updateUI(){var steps=document.querySelectorAll('.step'),dots=document.querySelectorAll('.progress .dot');steps.forEach(function(s,i){s.classList.remove('active','left');if(i===current)s.classList.add('active');else if(i<current)s.classList.add('left');});dots.forEach(function(d,i){d.classList.remove('done','active');if(i<current)d.classList.add('done');else if(i===current)d.classList.add('active');});document.getElementById('prevBtn').style.display=current>0?'':'none';var br=document.getElementById('btnRow');if(current===3){br.style.display='none';}else{br.style.display='flex';document.getElementById('nextBtn').textContent=current===2?'Done':'Next';}}
 function next(){if(current<total-1){current++;updateUI();}}
 function prev(){if(current>0){current--;updateUI();}}
-document.getElementById('serverUrl').addEventListener('input',function(){var u=this.value.replace(/\/+$/,'');document.getElementById('mcpUrl').value=u?u+'/mcp':'等待填入服务器地址...';});
-function testConnection(){
-  var r=document.getElementById('testResult'),u=document.getElementById('serverUrl').value.replace(/\/+$/,''),t=document.getElementById('voxToken').value;
-  if(!u){r.className='test-result fail';r.textContent='请先填入服务器地址';return;}
-  r.className='test-result';r.textContent='连接中...';
-  fetch(u+'/',{headers:{'x-vox-token':t}}).then(function(r){return r.json();}).then(function(j){
-    if(j&&j.alive){r.className='test-result ok';r.textContent='\u2713 连接成功';}else{r.className='test-result fail';r.textContent='\u2717 服务器响应异常';}
-  }).catch(function(){r.className='test-result fail';r.textContent='\u2717 无法连接，请检查地址和口令';});
-}
-function copyMcp(){var i=document.getElementById('mcpUrl');i.select();document.execCommand('copy');var b=i.nextElementSibling;b.textContent='已复制';setTimeout(function(){b.textContent='复制';},1500);}
-var providerHints={
-  minimax:'Key: <a href="https://www.minimax.chat" target="_blank">MiniMax 控制台</a> \u2192 API Keys \u2192 创建<br>Group ID: 控制台右上角账号信息里复制<br>Voice ID: 控制台 \u2192 语音 \u2192 音色市场，选好后复制 voice_id',
-  elevenlabs:'Key: <a href="https://elevenlabs.io" target="_blank">ElevenLabs</a> \u2192 Profile \u2192 API Key<br>Voice ID: Voices \u2192 选一个音色 \u2192 复制 Voice ID',
-  mossland:'Key: <a href="https://mossland.ai" target="_blank">Mossland</a> \u2192 克隆音色后获取<br>Voice ID: 克隆完成后自动生成'
-};
-function onProviderChange(){
-  var v=document.getElementById('providerSelect').value,f=document.getElementById('providerFields'),h=document.getElementById('providerHint'),g=document.getElementById('groupIdField');
-  if(v){f.classList.add('show');h.innerHTML=providerHints[v]||'';g.style.display=v==='minimax'?'':'none';}else{f.classList.remove('show');h.innerHTML='';g.style.display='none';}
-}
-function firstCall(){
-  var srv=document.getElementById('serverUrl').value.replace(/\/+$/,'');
-  var tok=document.getElementById('voxToken').value;
-  var cfg={server:srv,token:tok,provider:document.getElementById('providerSelect').value,key:document.getElementById('providerKey').value,voice:document.getElementById('providerVoice').value,group:document.getElementById('providerGroup').value||'',onboarded:true};
-  localStorage.setItem('auris_config',JSON.stringify(cfg));
-  // Send config to server so it uses the right TTS provider and voice
-  fetch(srv+'/config',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-vox-token':tok},
-    body:JSON.stringify({provider:cfg.provider,key:cfg.key,voice:cfg.voice,group:cfg.group})
-  }).then(function(r){return r.json();}).then(function(j){
-    if(j&&j.ok){window.location.href='call.html';}
-    else{alert('服务器配置失败，请检查地址和口令');}
-  }).catch(function(){
-    // If /config not implemented yet, still save locally and proceed
-    window.location.href='call.html';
-  });
-}
-updateUI();
+document.getElementById('serverUrl').addEventListener('input',function(){var u=this.value.replace(/\/+$/,'');document.getElementById('mcpUrl').value=u?u+'/mcp':'...';});
+function testConnection(){var r=document.getElementById('testResult'),u=document.getElementById('serverUrl').value.replace(/\/+$/,''),t=document.getElementById('voxToken').value;if(!u){r.className='test-result fail';r.textContent='Fill server URL first';return;}r.className='test-result';r.textContent='Connecting...';fetch(u+'/',{headers:{'x-vox-token':t}}).then(function(x){return x.json();}).then(function(j){if(j&&j.alive){r.className='test-result ok';r.textContent='Connected';}else{r.className='test-result fail';r.textContent='Bad response';}}).catch(function(){r.className='test-result fail';r.textContent='Cannot connect';});}
+function copyMcp(){var i=document.getElementById('mcpUrl');i.select();document.execCommand('copy');var b=i.nextElementSibling;b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1500);}
+function addVoice(){var idx=voiceCount++;var list=document.getElementById('voiceList');var card=document.createElement('div');card.className='voice-card';card.id='vc-'+idx;card.innerHTML='<div class="vc-header"><span class="vc-title">Voice '+(idx+1)+'</span>'+(idx>0?'<button class="vc-remove" onclick="removeVoice('+idx+')">&times;</button>':'')+'</div><div class="field"><label>Name</label><input type="text" data-vc="'+idx+'" data-f="name" placeholder="Give this voice a name"></div><div class="field"><label>Provider</label><select data-vc="'+idx+'" data-f="provider" onchange="onVcP('+idx+')"><option value="">Select...</option><option value="minimax">MiniMax</option><option value="elevenlabs">ElevenLabs</option><option value="mossland">Mossland</option></select></div><div id="vcF-'+idx+'"></div>';list.appendChild(card);}
+function removeVoice(idx){var el=document.getElementById('vc-'+idx);if(el)el.remove();}
+function onVcP(idx){var sel=document.querySelector('[data-vc="'+idx+'"][data-f="provider"]');var v=sel.value;var c=document.getElementById('vcF-'+idx);if(!v){c.innerHTML='';return;}var h='<div class="field"><label>API Key</label><input type="password" data-vc="'+idx+'" data-f="key" placeholder="API Key"></div>';if(v==='minimax')h+='<div class="field"><label>Group ID</label><input type="text" data-vc="'+idx+'" data-f="group" placeholder="Group ID"></div>';h+='<div class="field"><label>Voice ID</label><input type="text" data-vc="'+idx+'" data-f="voice" placeholder="Voice ID"><div class="hint">'+(providerHints[v]||'')+'</div></div>';c.innerHTML=h;}
+function getVoices(){var cards=document.querySelectorAll('.voice-card');var voices=[];cards.forEach(function(c){var get=function(f){var el=c.querySelector('[data-f="'+f+'"]');return el?el.value.trim():'';};var v={name:get('name'),provider:get('provider'),key:get('key'),voice:get('voice'),group:get('group')||''};if(v.provider&&v.key&&v.voice)voices.push(v);});return voices;}
+function firstCall(){var srv=document.getElementById('serverUrl').value.replace(/\/+$/,'');var tok=document.getElementById('voxToken').value;var voices=getVoices();var cfg={server:srv,token:tok,voices:voices,onboarded:true};localStorage.setItem('auris_config',JSON.stringify(cfg));fetch(srv+'/config',{method:'POST',headers:{'Content-Type':'application/json','x-vox-token':tok},body:JSON.stringify({voices:voices})}).then(function(x){return x.json();}).then(function(j){if(j&&j.ok){window.location.href='call.html';}else{alert('Config failed');}}).catch(function(){window.location.href='call.html';});}
+addVoice();updateUI();
 </script>
 </body>
 </html>
