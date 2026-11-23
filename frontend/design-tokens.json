@@ -1,0 +1,74 @@
+{
+  "_note": "Auris shared design tokens. Both web and iOS read from this file. Change once, sync everywhere.",
+  "version": 1,
+
+  "palette": {
+    "background": { "hex": "#4C2E1B", "rgb": [0.298, 0.180, 0.106] },
+    "cream": { "hex": "#FFE9B2", "rgb": [1.0, 0.914, 0.698] },
+    "ice": { "hex": "#E5F9FF", "rgb": [0.898, 0.976, 1.0] },
+    "iceDeep": { "hex": "#B8ECF7", "rgb": [0.722, 0.925, 0.969] },
+    "danger": { "hex": "#E8645A", "rgb": [0.910, 0.392, 0.353] },
+    "dangerDeep": { "hex": "#C0392B", "rgb": [0.753, 0.224, 0.169] }
+  },
+
+  "typography": {
+    "display": { "family": "Playfair Display", "weight": 600, "fallback": "serif" },
+    "body": { "family": "Outfit", "weights": [300, 400, 500], "fallback": "sans-serif" },
+    "ampersand": { "family": "Pinyon Script", "fallback": "cursive" }
+  },
+
+  "splash": {
+    "duration_ms": 3500,
+    "wave": {
+      "warm": { "yOffset": -8, "amplitude": 20, "side": 0, "phase": 0, "color": "cream", "opacity": 0.88, "lineWidth": 4.5 },
+      "cool": { "yOffset": 8, "amplitude": 20, "side": 1, "phase": 0.6, "color": "ice", "opacity": 0.65, "lineWidth": 4.5 }
+    },
+    "heart": {
+      "scale": 50,
+      "yCenter_offset": -18,
+      "wave_start": 0.28,
+      "wave_end": 0.72
+    },
+    "glow": {
+      "appear_at": 0.3,
+      "size": 92,
+      "blur": 5
+    },
+    "title_appear_at": 0.55,
+    "names_appear_at": 0.7,
+    "auto_advance_delay_ms": 1500,
+    "credits": [
+      { "left": ["Brittany", "Chris"], "right": ["Miso.yan_", "Kian"] }
+    ]
+  },
+
+  "onboarding": {
+    "steps": 4,
+    "titles": ["Deploy your server", "Connect your server", "Choose a voice", "Ready to call"],
+    "providers": [
+      { "id": "minimax", "label": "MiniMax", "fields": ["key", "group", "voice"], "hint": "Key: MiniMax console > API Keys. Group ID: account info top-right. Voice ID: voice market, copy voice_id." },
+      { "id": "elevenlabs", "label": "ElevenLabs", "fields": ["key", "voice"], "hint": "Key: Profile > API Key. Voice ID: Voices > pick one > copy Voice ID." },
+      { "id": "mossland", "label": "Mossland", "fields": ["key", "voice"], "hint": "Key: clone a voice first. Voice ID: auto-generated after cloning." }
+    ]
+  },
+
+  "call": {
+    "emotion_labels": {
+      "happy": "smiling",
+      "sad": "sounds down",
+      "angry": "sounds upset",
+      "tender": "being soft",
+      "tired": "sounds tired",
+      "anxious": "a bit nervous",
+      "neutral": "listening..."
+    },
+    "post_call_messages": [
+      "call me again soon",
+      "remember to drink water",
+      "miss you already",
+      "your voice is my favorite sound",
+      "I'm always here",
+      "talk soon"
+    ]
+  }
+}
